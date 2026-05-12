@@ -4,11 +4,137 @@
   "graph": {},
   "nodes": [
     {
+      "label": "nas-sync.js",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L1",
+      "id": "nas_scripts_nas_sync_js",
+      "community": 1,
+      "norm_label": "nas-sync.js"
+    },
+    {
+      "label": "fs",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L13",
+      "id": "nas_scripts_nas_sync_fs",
+      "community": 1,
+      "norm_label": "fs"
+    },
+    {
+      "label": "path",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L14",
+      "id": "nas_scripts_nas_sync_path",
+      "community": 1,
+      "norm_label": "path"
+    },
+    {
+      "label": "fetchMessagesForDate()",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L27",
+      "id": "nas_scripts_nas_sync_fetchmessagesfordate",
+      "community": 1,
+      "norm_label": "fetchmessagesfordate()"
+    },
+    {
+      "label": "saveLogFile()",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L60",
+      "id": "nas_scripts_nas_sync_savelogfile",
+      "community": 1,
+      "norm_label": "savelogfile()"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L80",
+      "id": "nas_scripts_nas_sync_main",
+      "community": 1,
+      "norm_label": "main()"
+    },
+    {
+      "label": "index.ts",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L1",
+      "id": "supabase_functions_line_webhook_index_ts",
+      "community": 0,
+      "norm_label": "index.ts"
+    },
+    {
+      "label": "LINE_CHANNEL_ACCESS_TOKEN",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L7",
+      "id": "line_webhook_index_line_channel_access_token",
+      "community": 0,
+      "norm_label": "line_channel_access_token"
+    },
+    {
+      "label": "supabase",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L9",
+      "id": "line_webhook_index_supabase",
+      "community": 0,
+      "norm_label": "supabase"
+    },
+    {
+      "label": "verifySignature()",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L11",
+      "id": "line_webhook_index_verifysignature",
+      "community": 0,
+      "norm_label": "verifysignature()"
+    },
+    {
+      "label": "fetchDisplayName()",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L25",
+      "id": "line_webhook_index_fetchdisplayname",
+      "community": 0,
+      "norm_label": "fetchdisplayname()"
+    },
+    {
+      "label": "signature",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L51",
+      "id": "line_webhook_index_signature",
+      "community": 0,
+      "norm_label": "signature"
+    },
+    {
+      "label": "body",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L65",
+      "id": "line_webhook_index_body",
+      "community": 0,
+      "norm_label": "body"
+    },
+    {
+      "label": "eventTime",
+      "file_type": "code",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L71",
+      "id": "line_webhook_index_eventtime",
+      "community": 0,
+      "norm_label": "eventtime"
+    },
+    {
       "label": "Supabase Edge Function (line-webhook)",
       "file_type": "document",
       "source_file": "architecture-and-plan-final.md",
       "id": "supabase_edge_function",
-      "community": 2,
+      "community": 3,
       "norm_label": "supabase edge function (line-webhook)"
     },
     {
@@ -16,7 +142,7 @@
       "file_type": "code",
       "source_file": "supabase-schema.sql",
       "id": "database_table_line_messages",
-      "community": 0,
+      "community": 3,
       "norm_label": "database table: line_messages"
     },
     {
@@ -24,7 +150,7 @@
       "file_type": "code",
       "source_file": "supabase-schema.sql",
       "id": "database_table_system_heartbeat",
-      "community": 3,
+      "community": 4,
       "norm_label": "database table: system_heartbeat"
     },
     {
@@ -32,7 +158,7 @@
       "file_type": "document",
       "source_file": "AGENTS.md",
       "id": "local_analyzer_hermes",
-      "community": 1,
+      "community": 2,
       "norm_label": "local analyzer (hermes ai)"
     },
     {
@@ -40,7 +166,7 @@
       "file_type": "document",
       "source_file": "line-oa-environment-export.md",
       "id": "nas_ds218play",
-      "community": 0,
+      "community": 2,
       "norm_label": "nas ds218play (synology)"
     },
     {
@@ -48,7 +174,7 @@
       "file_type": "document",
       "source_file": "PROJECT_BRIEF.md",
       "id": "line_oa_customer",
-      "community": 2,
+      "community": 3,
       "norm_label": "line oa customer account"
     },
     {
@@ -56,7 +182,7 @@
       "file_type": "document",
       "source_file": "PROJECT_BRIEF.md",
       "id": "line_messaging_api",
-      "community": 2,
+      "community": 3,
       "norm_label": "line messaging api"
     },
     {
@@ -64,7 +190,7 @@
       "file_type": "document",
       "source_file": "architecture-and-plan-final.md",
       "id": "raw_logs_json",
-      "community": 0,
+      "community": 2,
       "norm_label": "raw logs json (raw_logs/)"
     },
     {
@@ -72,7 +198,7 @@
       "file_type": "document",
       "source_file": "architecture-and-plan-final.md",
       "id": "profiles_md",
-      "community": 1,
+      "community": 2,
       "norm_label": "profiles md (profiles/)"
     },
     {
@@ -80,11 +206,153 @@
       "file_type": "document",
       "source_file": "architecture-and-plan-final.md",
       "id": "reports_md",
-      "community": 1,
+      "community": 2,
       "norm_label": "reports md (reports/)"
     }
   ],
   "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_js",
+      "target": "nas_scripts_nas_sync_fs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_js",
+      "target": "nas_scripts_nas_sync_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_js",
+      "target": "nas_scripts_nas_sync_fetchmessagesfordate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L60",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_js",
+      "target": "nas_scripts_nas_sync_savelogfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L80",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_js",
+      "target": "nas_scripts_nas_sync_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L107",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_main",
+      "target": "nas_scripts_nas_sync_fetchmessagesfordate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "nas-scripts/nas-sync.js",
+      "source_location": "L108",
+      "weight": 1.0,
+      "source": "nas_scripts_nas_sync_main",
+      "target": "nas_scripts_nas_sync_savelogfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_line_channel_access_token",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_supabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_verifysignature",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_fetchdisplayname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_signature",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_body",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "supabase/functions/line-webhook/index.ts",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "supabase_functions_line_webhook_index_ts",
+      "target": "line_webhook_index_eventtime",
+      "confidence_score": 1.0
+    },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
@@ -158,5 +426,6 @@
       "target": "line_messaging_api"
     }
   ],
-  "hyperedges": []
+  "hyperedges": [],
+  "built_at_commit": "d47dc9b8cf2f713f099e6dfe51d3edfeaf4b32ef"
 }
