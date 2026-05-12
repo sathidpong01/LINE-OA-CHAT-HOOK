@@ -9,9 +9,11 @@ run-graphify.py
 run_full_graphify.py
 test/
 
-# Graphify
-graphify-out/
-.graphify*
+# Graphify — track final outputs, ignore intermediate cache files
+graphify-out/.graphify*
+graphify-out/cache/
+graphify-out/detect.py
+graphify-out/step*.py
 
 # Node / Dependencies
 node_modules/

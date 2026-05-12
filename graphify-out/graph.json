@@ -1,0 +1,162 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "Supabase Edge Function (line-webhook)",
+      "file_type": "document",
+      "source_file": "architecture-and-plan-final.md",
+      "id": "supabase_edge_function",
+      "community": 2,
+      "norm_label": "supabase edge function (line-webhook)"
+    },
+    {
+      "label": "Database Table: line_messages",
+      "file_type": "code",
+      "source_file": "supabase-schema.sql",
+      "id": "database_table_line_messages",
+      "community": 0,
+      "norm_label": "database table: line_messages"
+    },
+    {
+      "label": "Database Table: system_heartbeat",
+      "file_type": "code",
+      "source_file": "supabase-schema.sql",
+      "id": "database_table_system_heartbeat",
+      "community": 3,
+      "norm_label": "database table: system_heartbeat"
+    },
+    {
+      "label": "Local Analyzer (Hermes AI)",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "id": "local_analyzer_hermes",
+      "community": 1,
+      "norm_label": "local analyzer (hermes ai)"
+    },
+    {
+      "label": "NAS DS218play (Synology)",
+      "file_type": "document",
+      "source_file": "line-oa-environment-export.md",
+      "id": "nas_ds218play",
+      "community": 0,
+      "norm_label": "nas ds218play (synology)"
+    },
+    {
+      "label": "LINE OA Customer Account",
+      "file_type": "document",
+      "source_file": "PROJECT_BRIEF.md",
+      "id": "line_oa_customer",
+      "community": 2,
+      "norm_label": "line oa customer account"
+    },
+    {
+      "label": "LINE Messaging API",
+      "file_type": "document",
+      "source_file": "PROJECT_BRIEF.md",
+      "id": "line_messaging_api",
+      "community": 2,
+      "norm_label": "line messaging api"
+    },
+    {
+      "label": "Raw Logs JSON (raw_logs/)",
+      "file_type": "document",
+      "source_file": "architecture-and-plan-final.md",
+      "id": "raw_logs_json",
+      "community": 0,
+      "norm_label": "raw logs json (raw_logs/)"
+    },
+    {
+      "label": "Profiles MD (profiles/)",
+      "file_type": "document",
+      "source_file": "architecture-and-plan-final.md",
+      "id": "profiles_md",
+      "community": 1,
+      "norm_label": "profiles md (profiles/)"
+    },
+    {
+      "label": "Reports MD (reports/)",
+      "file_type": "document",
+      "source_file": "architecture-and-plan-final.md",
+      "id": "reports_md",
+      "community": 1,
+      "norm_label": "reports md (reports/)"
+    }
+  ],
+  "links": [
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "line_messaging_api",
+      "target": "supabase_edge_function"
+    },
+    {
+      "relation": "inserts_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "supabase_edge_function",
+      "target": "database_table_line_messages"
+    },
+    {
+      "relation": "pulls_from",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "nas_ds218play",
+      "target": "database_table_line_messages"
+    },
+    {
+      "relation": "reads",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "local_analyzer_hermes",
+      "target": "raw_logs_json"
+    },
+    {
+      "relation": "updates",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "local_analyzer_hermes",
+      "target": "profiles_md"
+    },
+    {
+      "relation": "creates",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "local_analyzer_hermes",
+      "target": "reports_md"
+    },
+    {
+      "relation": "writes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "nas_ds218play",
+      "target": "raw_logs_json"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "architecture-and-plan-final.md",
+      "weight": 1.0,
+      "source": "line_oa_customer",
+      "target": "line_messaging_api"
+    }
+  ],
+  "hyperedges": []
+}
