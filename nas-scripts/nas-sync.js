@@ -13,13 +13,13 @@
 const fs = require('fs');
 const path = require('path');
 
-// 1. กำหนดค่า Environment (คุณสามารถตั้งค่าใน Environment ของ NAS หรือแก้ตัวแปรตรงนี้ได้เลย)
-// แนะนำ: ตั้งค่าเป็น Environment Variables ใน Task Scheduler ของ NAS
-const SUPABASE_URL = process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY';
+// 1. กำหนดค่า Environment — ต้องตั้งค่าเป็น Environment Variables เท่านั้น ห้าม hard-code
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // โฟลเดอร์ปลายทางที่จะเก็บข้อมูลดิบ (แก้ไข Path นี้ให้ตรงกับ Shared Folder บน NAS)
 const BASE_LOG_DIR = process.env.BASE_LOG_DIR || path.join(__dirname, 'raw_logs');
+
 
 /**
  * ดึงข้อความจาก Supabase ตามวันที่ระบุ (YYYY-MM-DD)
@@ -86,8 +86,8 @@ async function main() {
         process.exit(1);
     }
 
-    if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-        console.error('[Error] กรุณาตั้งค่า SUPABASE_URL และ SUPABASE_SERVICE_ROLE_KEY');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        console.error('[Error] กรุณาตั้งค่า SUPABASE_URL และ SUPABASE_SERVICE_ROLE_KEY เป็น Environment Variables');
         process.exit(1);
     }
 
