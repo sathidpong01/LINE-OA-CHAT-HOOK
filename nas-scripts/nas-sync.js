@@ -19,6 +19,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // โฟลเดอร์ปลายทางที่จะเก็บข้อมูลดิบ (แก้ไข Path นี้ให้ตรงกับ Shared Folder บน NAS)
 const BASE_LOG_DIR = process.env.BASE_LOG_DIR || path.join(__dirname, 'raw_logs');
+const BASE_MEDIA_DIR = process.env.BASE_MEDIA_DIR || 'Y:\\media';
 
 
 /**
@@ -74,6 +75,94 @@ function saveLogFile(targetDateStr, data) {
     console.log(`[Save] บันทึกไฟล์สำเร็จ: ${filePath}`);
 }
 
+function storageObjectUrl(supabaseUrl, bucket, objectPath) {
+    const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
+    return `${supabaseUrl}/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`;
+}
+
+function localMediaPath(baseMediaDir, objectPath) {
+    return path.join(baseMediaDir, ...objectPath.split('/'));
+}
+
+function shouldBackupMedia(message) {
+    return Boolean(message && message.media_path && !message.media_backed_up_at);
+}
+
+async function markMediaBackedUp(messageId) {
+    const url = `${SUPABASE_URL}/rest/v1/line_messages?id=eq.${messageId}`;
+    const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+            media_backed_up_at: new Date().toISOString()
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Supabase backup marker error: ${response.status} ${response.statusText}`);
+    }
+}
+
+async function backupMediaFile(message) {
+    if (!shouldBackupMedia(message)) return false;
+
+    const bucket = message.media_bucket || 'line-message-media';
+    const filePath = localMediaPath(BASE_MEDIA_DIR, message.media_path);
+
+    if (fs.existsSync(filePath)) {
+        await markMediaBackedUp(message.id);
+        console.log(`[Media] มีไฟล์อยู่แล้วและ mark backup แล้ว: ${filePath}`);
+        return true;
+    }
+
+    const url = storageObjectUrl(SUPABASE_URL, bucket, message.media_path);
+    const response = await fetch(url, {
+        headers: {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Storage download error: ${response.status} ${response.statusText}`);
+    }
+
+    const dirPath = path.dirname(filePath);
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(filePath, bytes);
+    await markMediaBackedUp(message.id);
+    console.log(`[Media] บันทึกไฟล์สำเร็จ: ${filePath}`);
+    return true;
+}
+
+async function backupMediaFiles(messages) {
+    let backedUp = 0;
+
+    for (const message of messages) {
+        if (!shouldBackupMedia(message)) continue;
+
+        try {
+            const didBackup = await backupMediaFile(message);
+            if (didBackup) backedUp += 1;
+        } catch (error) {
+            console.error(`[Media Error] ไม่สามารถ backup media id=${message.id}:`, error.message);
+        }
+    }
+
+    if (backedUp > 0) {
+        console.log(`[Media] backup สำเร็จ ${backedUp} ไฟล์`);
+    }
+}
+
 /**
  * ฟังก์ชันหลัก
  */
@@ -106,9 +195,21 @@ async function main() {
     for (const dateStr of datesToSync) {
         const messages = await fetchMessagesForDate(dateStr);
         saveLogFile(dateStr, messages);
+        await backupMediaFiles(messages);
     }
 
     console.log('--- กระบวนการเสร็จสมบูรณ์ ---');
 }
 
-main();
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    fetchMessagesForDate,
+    saveLogFile,
+    storageObjectUrl,
+    localMediaPath,
+    shouldBackupMedia,
+    backupMediaFiles,
+};
