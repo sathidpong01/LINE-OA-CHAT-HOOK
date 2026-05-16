@@ -50,6 +50,8 @@ script จะสรุปรอบงานล่าสุดที่ปิด�
 - `Y:\media` คือรูป/สลิปที่ backup ลง NAS แล้ว
 - `Y:\line_oa_backups` คือ CSV backup จาก LINE OA Manager ที่เจ้าของร้านโหลดเอง ถ้าไม่มีก็ข้ามได้
 - `Y:\case_state\cases.json` คือสมุดสถานะ case ที่ Hermes ใช้จำว่า open/watch/closed/ignored
+- `Y:\customer_profiles` คือ คลังข้อมูลโปรไฟล์ลูกค้า (Markdown) ใช้เพื่อนำบริบท/นิสัย/ประวัติลูกค้ามาประกอบการวิเคราะห์รายงาน
+
 
 ## Outputs
 
@@ -252,6 +254,8 @@ Hermes ดูแล `Y:\case_state\cases.json` ได้ แต่ต้อง c
 ## Image / Slip Reading Rules
 
 ใน context อาจมีข้อความรูป 2 แบบ:
+- หากพบลูกค้าที่มีไฟล์ใน `Y:\customer_profiles` ให้โหลดมาอ่านเพื่อนำบริบท/นิสัย/ประวัติมาประกอบการวิเคราะห์ priority และเหตุผลในรายงาน (เช่น เคสร้านป้ายด้วยกันอาจลด priority ลงถ้าเป็นการถามราคาปกติ)
+
 
 ```text
 - 2026-05-15 16:45 customer: [image]
