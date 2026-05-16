@@ -16,6 +16,7 @@ const {
   renderHermesContext,
   writeHermesContext,
   writeCaseState,
+  runCli,
 } = require("./hermes-daily");
 
 function tempDir() {
@@ -86,6 +87,15 @@ test("case state falls back when cases is not a plain object", () => {
 
     assert.deepEqual(loadCaseState(statePath), { cases: {} });
   }
+});
+
+test("case state falls back when JSON is malformed", () => {
+  const dir = tempDir();
+  const statePath = path.join(dir, "case_state", "cases.json");
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+  fs.writeFileSync(statePath, "{not json", "utf8");
+
+  assert.deepEqual(loadCaseState(statePath), { cases: {} });
 });
 
 test("normalizeRawLogMessage marks webhook rows as customer messages with local media path", () => {
@@ -244,8 +254,8 @@ test("importCsvBackups skips missing folders and records imported files", () => 
   assert.deepEqual(missingImport.importedFiles, []);
   assert.deepEqual(missingImport.messages, []);
   assert.match(missingImport.note, /ไม่มี CSV/);
+  assert.equal(fs.existsSync(backupDir), true);
 
-  fs.mkdirSync(backupDir, { recursive: true });
   fs.writeFileSync(
     path.join(backupDir, "backup.csv"),
     "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,รับทราบค่ะ\n",
@@ -258,7 +268,33 @@ test("importCsvBackups skips missing folders and records imported files", () => 
 
   const secondImport = importCsvBackups(backupDir, normalizedDir);
   assert.deepEqual(secondImport.importedFiles, []);
-  assert.equal(secondImport.messages.length, 0);
+  assert.equal(secondImport.messages.length, 1);
+});
+
+test("importCsvBackups replaces changed CSV rows without duplicating old rows", () => {
+  const dir = tempDir();
+  const backupDir = path.join(dir, "line-oa-backups");
+  const normalizedDir = path.join(dir, "normalized");
+  const csvPath = path.join(backupDir, "backup.csv");
+
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.writeFileSync(
+    csvPath,
+    "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,รับทราบค่ะ\n",
+    "utf8",
+  );
+  importCsvBackups(backupDir, normalizedDir);
+
+  fs.writeFileSync(
+    csvPath,
+    "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:20,ร้าน,คุณเอ,U-customer,เช็กให้แล้วค่ะ\n",
+    "utf8",
+  );
+  const result = importCsvBackups(backupDir, normalizedDir);
+
+  assert.deepEqual(result.importedFiles, ["backup.csv"]);
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.messages[0].text, "เช็กให้แล้วค่ะ");
 });
 
 test("importCsvBackups preserves quoted newlines in message fields", () => {
@@ -574,4 +610,94 @@ test("renderHermesContext renders invalid time and non-text messages without med
   });
 
   assert.match(markdown, /ไม่ทราบเวลา customer: \[image\]/);
+});
+
+test("runCli creates directories and writes a Hermes daily context", () => {
+  const dir = tempDir();
+  const rawLogDir = path.join(dir, "raw_logs");
+  const logDir = path.join(rawLogDir, "2026", "05");
+  fs.mkdirSync(logDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(logDir, "15.json"),
+    JSON.stringify(
+      [
+        {
+          id: 1,
+          event_time: "2026-05-15T03:00:00.000Z",
+          line_user_id: "U-test",
+          display_name: "คุณเอ",
+          message_type: "text",
+          text: "ขอราคา",
+        },
+      ],
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const result = runCli({
+    now: new Date("2026-05-16T02:00:00.000Z"),
+    rawLogDir,
+    backupDir: path.join(dir, "line_oa_backups"),
+    normalizedDir: path.join(dir, "normalized_logs"),
+    caseStatePath: path.join(dir, "case_state", "cases.json"),
+    reportDir: path.join(dir, "reports"),
+    mediaBaseDir: path.join(dir, "media"),
+  });
+
+  assert.equal(result.reportDate, "2026-05-16");
+  assert.ok(fs.existsSync(result.contextPath));
+  assert.match(fs.readFileSync(result.contextPath, "utf8"), /คุณเอ/);
+  assert.ok(fs.existsSync(path.join(dir, "case_state", "cases.json")));
+});
+
+test("runCli keeps CSV enrichment available on later runs", () => {
+  const dir = tempDir();
+  const rawLogDir = path.join(dir, "raw_logs");
+  const logDir = path.join(rawLogDir, "2026", "05");
+  const backupDir = path.join(dir, "line_oa_backups");
+  const normalizedDir = path.join(dir, "normalized_logs");
+  const options = {
+    now: new Date("2026-05-16T02:00:00.000Z"),
+    rawLogDir,
+    backupDir,
+    normalizedDir,
+    caseStatePath: path.join(dir, "case_state", "cases.json"),
+    reportDir: path.join(dir, "reports"),
+    mediaBaseDir: path.join(dir, "media"),
+  };
+
+  fs.mkdirSync(logDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(logDir, "15.json"),
+    JSON.stringify(
+      [
+        {
+          id: 1,
+          event_time: "2026-05-15T03:00:00.000Z",
+          line_user_id: "U-customer",
+          display_name: "คุณเอ",
+          message_type: "text",
+          text: "ขอราคา",
+        },
+      ],
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(backupDir, "backup.csv"),
+    "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,รับทราบค่ะ\n",
+    "utf8",
+  );
+
+  runCli(options);
+  const secondRun = runCli(options);
+  const context = fs.readFileSync(secondRun.contextPath, "utf8");
+
+  assert.equal(secondRun.csvMessageCount, 1);
+  assert.match(context, /shop: รับทราบค่ะ/);
 });

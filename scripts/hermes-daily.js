@@ -3,7 +3,14 @@ const crypto = require("crypto");
 const path = require("path");
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DEFAULT_RAW_LOG_DIR = "Y:\\raw_logs";
+const DEFAULT_BACKUP_DIR = "Y:\\line_oa_backups";
+const DEFAULT_NORMALIZED_DIR = "Y:\\normalized_logs";
+const DEFAULT_CASE_STATE_PATH = "Y:\\case_state\\cases.json";
+const DEFAULT_REPORT_DIR = "Y:\\reports";
 const DEFAULT_MEDIA_BASE_DIR = "Y:\\media";
+const LOOKBACK_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function bangkokParts(date) {
   const shifted = new Date(date.getTime() + BANGKOK_OFFSET_MS);
@@ -45,7 +52,12 @@ function dailyWindow(now = new Date()) {
 
 function loadCaseState(filePath) {
   if (!fs.existsSync(filePath)) return { cases: {} };
-  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return { cases: {} };
+  }
   if (
     parsed &&
     typeof parsed === "object" &&
@@ -278,21 +290,38 @@ function fileSha1(filePath) {
   return crypto.createHash("sha1").update(fs.readFileSync(filePath)).digest("hex");
 }
 
+function loadPersistedCsvMessages(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedCsvMessages(filePath, messages) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(messages, null, 2), "utf8");
+}
+
 function importCsvBackups(backupDir, normalizedDir) {
+  fs.mkdirSync(backupDir, { recursive: true });
   fs.mkdirSync(normalizedDir, { recursive: true });
   const manifestPath = path.join(normalizedDir, "csv-import-manifest.json");
+  const persistedMessagesPath = path.join(normalizedDir, "csv-messages.json");
   const manifest = loadImportManifest(manifestPath);
+  let messages = loadPersistedCsvMessages(persistedMessagesPath);
   const csvFiles = collectFiles(backupDir, ".csv").sort((a, b) => a.localeCompare(b));
 
   if (csvFiles.length === 0) {
     return {
-      messages: [],
+      messages,
       importedFiles: [],
       note: "ไม่มี CSV backup ให้ import",
     };
   }
 
-  const messages = [];
   const importedFiles = [];
 
   for (const filePath of csvFiles) {
@@ -303,9 +332,14 @@ function importCsvBackups(backupDir, normalizedDir) {
     }
 
     const text = fs.readFileSync(filePath, "utf8");
+    const nextMessages = [];
     for (const parsedRow of parseCsv(text, { withLineNumbers: true })) {
-      messages.push(normalizeCsvRow(parsedRow.row, relativeFile, parsedRow.lineNumber));
+      nextMessages.push(normalizeCsvRow(parsedRow.row, relativeFile, parsedRow.lineNumber));
     }
+
+    const fileMessagePrefix = `csv:${relativeFile}:`;
+    messages = messages.filter((message) => !String(message.id || "").startsWith(fileMessagePrefix));
+    messages.push(...nextMessages);
 
     manifest.imported[relativeFile] = {
       sha1,
@@ -315,6 +349,7 @@ function importCsvBackups(backupDir, normalizedDir) {
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+  writePersistedCsvMessages(persistedMessagesPath, messages);
 
   return {
     messages,
@@ -548,7 +583,69 @@ function writeHermesContext(markdown, reportDir, reportDate) {
   return filePath;
 }
 
+function byEventTimeAsc(left, right) {
+  return messageTime(left) - messageTime(right);
+}
+
+function runCli(overrides = {}) {
+  const now = overrides.now || new Date();
+  const window = dailyWindow(now);
+  const reportDate = window.reportDate;
+  const rawLogDir = overrides.rawLogDir || process.env.RAW_LOG_DIR || DEFAULT_RAW_LOG_DIR;
+  const backupDir = overrides.backupDir || process.env.LINE_OA_BACKUP_DIR || DEFAULT_BACKUP_DIR;
+  const normalizedDir = overrides.normalizedDir || process.env.NORMALIZED_LOG_DIR || DEFAULT_NORMALIZED_DIR;
+  const caseStatePath = overrides.caseStatePath || process.env.CASE_STATE_PATH || DEFAULT_CASE_STATE_PATH;
+  const reportDir = overrides.reportDir || process.env.REPORT_DIR || DEFAULT_REPORT_DIR;
+  const mediaBaseDir = overrides.mediaBaseDir || process.env.MEDIA_BASE_DIR || DEFAULT_MEDIA_BASE_DIR;
+  const caseState = loadCaseState(caseStatePath);
+
+  writeCaseState(caseStatePath, caseState);
+
+  const rawMessages = loadRawLogMessages(rawLogDir, {
+    start: new Date(window.end.getTime() - LOOKBACK_DAYS * DAY_MS),
+    end: window.end,
+    mediaBaseDir,
+  });
+  const csvImport = importCsvBackups(backupDir, normalizedDir);
+  const allMessages = [...rawMessages, ...csvImport.messages].sort(byEventTimeAsc);
+  const cases = buildContextCases(allMessages, {
+    windowStart: window.start,
+    windowEnd: window.end,
+    lookbackDays: LOOKBACK_DAYS,
+    caseState,
+  });
+  const markdown = renderHermesContext({
+    reportDate,
+    windowStart: window.start,
+    windowEnd: window.end,
+    csvNote: csvImport.note,
+    importedFiles: csvImport.importedFiles,
+    cases,
+  });
+  const contextPath = writeHermesContext(markdown, reportDir, reportDate);
+  const normalizedPath = path.join(normalizedDir, `messages-${reportDate}.json`);
+
+  fs.mkdirSync(normalizedDir, { recursive: true });
+  fs.writeFileSync(normalizedPath, JSON.stringify(allMessages, null, 2), "utf8");
+
+  return {
+    reportDate,
+    contextPath,
+    normalizedPath,
+    caseStatePath,
+    rawMessageCount: rawMessages.length,
+    csvMessageCount: csvImport.messages.length,
+    caseCount: cases.length,
+  };
+}
+
 module.exports = {
+  DEFAULT_BACKUP_DIR,
+  DEFAULT_CASE_STATE_PATH,
+  DEFAULT_MEDIA_BASE_DIR,
+  DEFAULT_NORMALIZED_DIR,
+  DEFAULT_RAW_LOG_DIR,
+  DEFAULT_REPORT_DIR,
   buildContextCases,
   dailyWindow,
   fileSha1,
@@ -566,6 +663,18 @@ module.exports = {
   parseCsvEventTime,
   parseCsvLine,
   renderHermesContext,
+  runCli,
   writeHermesContext,
   writeCaseState,
 };
+
+if (require.main === module) {
+  const result = runCli();
+  console.log(`reportDate: ${result.reportDate}`);
+  console.log(`contextPath: ${result.contextPath}`);
+  console.log(`normalizedPath: ${result.normalizedPath}`);
+  console.log(`caseStatePath: ${result.caseStatePath}`);
+  console.log(`rawMessageCount: ${result.rawMessageCount}`);
+  console.log(`csvMessageCount: ${result.csvMessageCount}`);
+  console.log(`caseCount: ${result.caseCount}`);
+}
