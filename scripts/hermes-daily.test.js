@@ -6,9 +6,12 @@ const path = require("path");
 
 const {
   dailyWindow,
+  importCsvBackups,
   loadCaseState,
   loadRawLogMessages,
   normalizeRawLogMessage,
+  normalizeCsvRow,
+  parseCsv,
   writeCaseState,
 } = require("./hermes-daily");
 
@@ -163,4 +166,119 @@ test("loadRawLogMessages reads JSON files recursively and filters inclusive time
   );
   assert.equal(messages[0].direction, "customer");
   assert.equal(messages[1].direction, "customer");
+});
+
+test("parseCsv handles quoted commas and Thai headers", () => {
+  const rows = parseCsv(
+    'เวลา,ผู้ส่ง,ข้อความ\n"2026-05-15 09:10","ร้าน","รับทราบ, เดี๋ยวเช็กให้"\n',
+  );
+
+  assert.deepEqual(rows, [
+    {
+      เวลา: "2026-05-15 09:10",
+      ผู้ส่ง: "ร้าน",
+      ข้อความ: "รับทราบ, เดี๋ยวเช็กให้",
+    },
+  ]);
+});
+
+test("parseCsv handles quoted newline as a single row", () => {
+  const rows = parseCsv(
+    'เวลา,ผู้ส่ง,ข้อความ\n"2026-05-15 09:10","ร้าน","บรรทัด 1\nบรรทัด 2"\n',
+  );
+
+  assert.deepEqual(rows, [
+    {
+      เวลา: "2026-05-15 09:10",
+      ผู้ส่ง: "ร้าน",
+      ข้อความ: "บรรทัด 1\nบรรทัด 2",
+    },
+  ]);
+});
+
+test("normalizeCsvRow maps shop backup rows", () => {
+  const message = normalizeCsvRow(
+    {
+      เวลา: "2026-05-15 09:10",
+      ผู้ส่ง: "ร้าน",
+      ชื่อลูกค้า: "คุณเอ",
+      "User ID": "U-customer",
+      ข้อความ: "รับทราบค่ะ",
+    },
+    "backup.csv",
+    2,
+  );
+
+  assert.equal(message.id, "csv:backup.csv:2");
+  assert.equal(message.source, "line_oa_csv");
+  assert.equal(message.direction, "shop");
+  assert.equal(message.line_user_id, "U-customer");
+  assert.equal(message.display_name, "คุณเอ");
+  assert.equal(message.text, "รับทราบค่ะ");
+  assert.equal(message.message_type, "text");
+});
+
+test("importCsvBackups skips missing folders and records imported files", () => {
+  const dir = tempDir();
+  const backupDir = path.join(dir, "line-oa-backups");
+  const normalizedDir = path.join(dir, "normalized");
+
+  const missingImport = importCsvBackups(backupDir, normalizedDir);
+  assert.deepEqual(missingImport.importedFiles, []);
+  assert.deepEqual(missingImport.messages, []);
+  assert.match(missingImport.note, /ไม่มี CSV/);
+
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(backupDir, "backup.csv"),
+    "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,รับทราบค่ะ\n",
+    "utf8",
+  );
+
+  const firstImport = importCsvBackups(backupDir, normalizedDir);
+  assert.deepEqual(firstImport.importedFiles, ["backup.csv"]);
+  assert.equal(firstImport.messages.length, 1);
+
+  const secondImport = importCsvBackups(backupDir, normalizedDir);
+  assert.deepEqual(secondImport.importedFiles, []);
+  assert.equal(secondImport.messages.length, 0);
+});
+
+test("importCsvBackups preserves quoted newlines in message fields", () => {
+  const dir = tempDir();
+  const backupDir = path.join(dir, "line-oa-backups");
+  const normalizedDir = path.join(dir, "normalized");
+
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(backupDir, "backup.csv"),
+    'เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,"บรรทัด 1\nบรรทัด 2"\n',
+    "utf8",
+  );
+
+  const result = importCsvBackups(backupDir, normalizedDir);
+
+  assert.deepEqual(result.importedFiles, ["backup.csv"]);
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.messages[0].text, "บรรทัด 1\nบรรทัด 2");
+});
+
+test("importCsvBackups continues when manifest JSON is malformed", () => {
+  const dir = tempDir();
+  const backupDir = path.join(dir, "line-oa-backups");
+  const normalizedDir = path.join(dir, "normalized");
+
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.mkdirSync(normalizedDir, { recursive: true });
+  fs.writeFileSync(path.join(normalizedDir, "csv-import-manifest.json"), "{not json", "utf8");
+  fs.writeFileSync(
+    path.join(backupDir, "backup.csv"),
+    "เวลา,ผู้ส่ง,ชื่อลูกค้า,User ID,ข้อความ\n2026-05-15 09:10,ร้าน,คุณเอ,U-customer,รับทราบค่ะ\n",
+    "utf8",
+  );
+
+  const result = importCsvBackups(backupDir, normalizedDir);
+
+  assert.deepEqual(result.importedFiles, ["backup.csv"]);
+  assert.equal(result.messages.length, 1);
 });
