@@ -444,6 +444,110 @@ function buildContextCases(messages, options) {
   return contextCases.sort((a, b) => new Date(a.latest_at).getTime() - new Date(b.latest_at).getTime());
 }
 
+function formatIsoBangkok(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "ไม่ทราบเวลา";
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function renderMessage(message) {
+  const time = formatIsoBangkok(message.event_time || message.created_at);
+  const direction = message.direction || "unknown";
+  const body = String(message.text || `[${message.message_type || "unknown"}]`);
+  const bodyLines = body.split(/\r\n|\n|\r/);
+  const lines = [`- ${time} ${direction}: ${bodyLines[0]}`];
+
+  for (const continuation of bodyLines.slice(1)) {
+    lines.push(`  | ${continuation}`);
+  }
+
+  if (message.media_file) {
+    lines.push(`  media: ${message.media_file}`);
+  }
+
+  return lines.join("\n");
+}
+
+function renderHermesContext(input) {
+  const importedFiles = input.importedFiles || [];
+  const cases = input.cases || [];
+  const lines = [
+    "# Hermes Daily LINE OA Context",
+    "",
+    `Report date: ${input.reportDate}`,
+    `Window start: ${input.windowStart instanceof Date ? input.windowStart.toISOString() : input.windowStart}`,
+    `Window end: ${input.windowEnd instanceof Date ? input.windowEnd.toISOString() : input.windowEnd}`,
+    "",
+    "## CSV Enrichment",
+    input.csvNote || "ไม่มีหมายเหตุ CSV",
+    "",
+    "Imported files:",
+  ];
+
+  if (importedFiles.length === 0) {
+    lines.push("- ไม่มีไฟล์ CSV ที่ import ใหม่");
+  } else {
+    for (const filePath of importedFiles) {
+      lines.push(`- ${filePath}`);
+    }
+  }
+
+  lines.push(
+    "",
+    "## Hermes Instructions",
+    "- วิเคราะห์ทุก conversation ในไฟล์นี้ ไม่ใช่เฉพาะ tag ที่ script ใส่ไว้",
+    '- ถ้าไม่มี shop/admin messages ล่าสุด ให้ใช้คำว่า "ไม่พบคำตอบฝั่งร้านในข้อมูลที่มี"',
+    "- ห้ามฟันธงว่าร้านไม่ได้ตอบ ถ้าข้อมูลมีเฉพาะ webhook inbound",
+    "- ปิดเคสเองได้เฉพาะเมื่อหลักฐานชัด และต้องเขียน closed_evidence ใน cases.json",
+    '- ถ้าไม่มั่นใจ ให้จัดไว้ในหัวข้อ "ถามเจ้าของร้าน"',
+    "- รายงานสุดท้ายต้องมีหัวข้อ: ต้องดูทันที, ควรตรวจ, เฝ้าดู, ถามเจ้าของร้าน, ปิดงานอัตโนมัติวันนี้",
+    "",
+    "## Cases",
+  );
+
+  if (cases.length === 0) {
+    lines.push("ไม่มี conversation ที่ต้องส่งให้ Hermes ในรอบนี้");
+    return lines.join("\n");
+  }
+
+  cases.forEach((caseItem, index) => {
+    lines.push(
+      "",
+      `### ${index + 1}. ${caseItem.display_name || caseItem.line_user_id || "ไม่ทราบชื่อ"}`,
+      `line_user_id: ${caseItem.line_user_id || ""}`,
+      `status: ${caseItem.status || ""}`,
+      `include_reason: ${caseItem.include_reason || ""}`,
+    );
+
+    if (caseItem.state && caseItem.state.summary) {
+      lines.push(`state_summary: ${caseItem.state.summary}`);
+    }
+
+    lines.push("", "Messages:");
+    for (const message of caseItem.messages || []) {
+      lines.push(renderMessage(message));
+    }
+  });
+
+  return lines.join("\n");
+}
+
+function writeHermesContext(markdown, reportDir, reportDate) {
+  fs.mkdirSync(reportDir, { recursive: true });
+  const filePath = path.join(reportDir, `hermes-daily-context-${reportDate}.md`);
+  fs.writeFileSync(filePath, markdown, "utf8");
+  return filePath;
+}
+
 module.exports = {
   buildContextCases,
   dailyWindow,
@@ -461,5 +565,7 @@ module.exports = {
   parseCsv,
   parseCsvEventTime,
   parseCsvLine,
+  renderHermesContext,
+  writeHermesContext,
   writeCaseState,
 };

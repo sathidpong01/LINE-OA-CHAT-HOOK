@@ -13,6 +13,8 @@ const {
   normalizeRawLogMessage,
   normalizeCsvRow,
   parseCsv,
+  renderHermesContext,
+  writeHermesContext,
   writeCaseState,
 } = require("./hermes-daily");
 
@@ -461,4 +463,115 @@ test("buildContextCases includes needs_owner cases from 90-day lookback without 
   assert.equal(cases.length, 1);
   assert.equal(cases[0].line_user_id, "U-needs-owner");
   assert.equal(cases[0].include_reason, "existing_needs_owner_case");
+});
+
+test("renderHermesContext includes instructions, CSV note, cases, shop messages, and media paths", () => {
+  const markdown = renderHermesContext({
+    reportDate: "2026-05-16",
+    windowStart: new Date("2026-05-15T01:00:00.000Z"),
+    windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+    csvNote: "ไม่มี CSV backup ใหม่ให้ import",
+    importedFiles: [],
+    cases: [
+      {
+        line_user_id: "U-test",
+        display_name: "คุณเอ",
+        status: "watch",
+        include_reason: "activity_in_daily_window",
+        state: { status: "watch", summary: "รอผลิต" },
+        messages: [
+          normalized({
+            direction: "customer",
+            event_time: "2026-05-15T03:00:00.000Z",
+            text: "โอนมัดจำแล้วค่ะ",
+          }),
+          normalized({
+            source: "line_oa_csv",
+            direction: "shop",
+            event_time: "2026-05-15T03:05:00.000Z",
+            text: "รับทราบค่ะ",
+          }),
+          normalized({
+            direction: "customer",
+            event_time: "2026-05-15T03:06:00.000Z",
+            message_type: "image",
+            media_file: "Y:\\media\\2026\\05\\15\\U-test\\slip.jpg",
+          }),
+        ],
+      },
+    ],
+  });
+
+  assert.match(markdown, /Hermes Daily LINE OA Context/);
+  assert.match(markdown, /ไม่พบคำตอบฝั่งร้านในข้อมูลที่มี/);
+  assert.match(markdown, /ปิดงานอัตโนมัติวันนี้/);
+  assert.match(markdown, /คุณเอ/);
+  assert.match(markdown, /customer: โอนมัดจำแล้วค่ะ/);
+  assert.match(markdown, /shop: รับทราบค่ะ/);
+  assert.match(markdown, /media: Y:\\media\\2026\\05\\15\\U-test\\slip\.jpg/);
+});
+
+test("writeHermesContext writes report-date named context files", () => {
+  const dir = tempDir();
+  const filePath = writeHermesContext("hello", dir, "2026-05-16");
+
+  assert.equal(filePath, path.join(dir, "hermes-daily-context-2026-05-16.md"));
+  assert.equal(fs.readFileSync(filePath, "utf8"), "hello");
+});
+
+test("renderHermesContext indents multiline message continuations", () => {
+  const markdown = renderHermesContext({
+    reportDate: "2026-05-16",
+    windowStart: new Date("2026-05-15T01:00:00.000Z"),
+    windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+    csvNote: "",
+    importedFiles: [],
+    cases: [
+      {
+        line_user_id: "U-test",
+        display_name: "คุณเอ",
+        status: "watch",
+        include_reason: "activity_in_daily_window",
+        state: { status: "watch" },
+        messages: [
+          normalized({
+            direction: "customer",
+            event_time: "2026-05-15T03:10:00.000Z",
+            text: "บรรทัด 1\nบรรทัด 2",
+          }),
+        ],
+      },
+    ],
+  });
+
+  assert.match(markdown, /\n  \| บรรทัด 2/);
+  assert.doesNotMatch(markdown, /\nบรรทัด 2(?:\n|$)/);
+});
+
+test("renderHermesContext renders invalid time and non-text messages without media", () => {
+  const markdown = renderHermesContext({
+    reportDate: "2026-05-16",
+    windowStart: new Date("2026-05-15T01:00:00.000Z"),
+    windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+    csvNote: "",
+    importedFiles: [],
+    cases: [
+      {
+        line_user_id: "U-test",
+        display_name: "คุณเอ",
+        status: "watch",
+        include_reason: "activity_in_daily_window",
+        state: { status: "watch" },
+        messages: [
+          normalized({
+            direction: "customer",
+            event_time: "not-a-date",
+            message_type: "image",
+          }),
+        ],
+      },
+    ],
+  });
+
+  assert.match(markdown, /ไม่ทราบเวลา customer: \[image\]/);
 });
