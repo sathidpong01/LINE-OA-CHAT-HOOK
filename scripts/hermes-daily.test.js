@@ -5,6 +5,7 @@ const os = require("os");
 const path = require("path");
 
 const {
+  buildContextCases,
   dailyWindow,
   importCsvBackups,
   loadCaseState,
@@ -17,6 +18,20 @@ const {
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hermes-daily-"));
+}
+
+function normalized(overrides = {}) {
+  return {
+    id: "test-message",
+    source: "test",
+    direction: "customer",
+    event_time: "2026-05-15T03:00:00.000Z",
+    line_user_id: "U-test",
+    display_name: "",
+    message_type: "text",
+    text: "",
+    ...overrides,
+  };
 }
 
 test("dailyWindow returns previous 08:00 to current 08:00 after the morning cutoff", () => {
@@ -281,4 +296,169 @@ test("importCsvBackups continues when manifest JSON is malformed", () => {
 
   assert.deepEqual(result.importedFiles, ["backup.csv"]);
   assert.equal(result.messages.length, 1);
+});
+
+test("buildContextCases includes daily activity and open/watch cases from 90-day lookback", () => {
+  const cases = buildContextCases(
+    [
+      normalized({
+        line_user_id: "U-daily",
+        event_time: "2026-05-15T03:00:00.000Z",
+        text: "ขอราคาค่ะ",
+      }),
+      normalized({
+        line_user_id: "U-open",
+        event_time: "2026-04-10T03:00:00.000Z",
+        text: "งานผลิตถึงไหนแล้วคะ",
+      }),
+      normalized({
+        line_user_id: "U-closed",
+        event_time: "2026-04-10T03:00:00.000Z",
+        text: "ติดตั้งเรียบร้อย",
+      }),
+    ],
+    {
+      windowStart: new Date("2026-05-15T01:00:00.000Z"),
+      windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+      lookbackDays: 90,
+      caseState: {
+        cases: {
+          "U-open": { status: "watch", summary: "รอผลิต" },
+          "U-closed": { status: "closed", summary: "ปิดแล้ว" },
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    cases.map((caseItem) => caseItem.line_user_id),
+    ["U-open", "U-daily"],
+  );
+  assert.deepEqual(
+    cases.map((caseItem) => caseItem.include_reason),
+    ["existing_watch_case", "activity_in_daily_window"],
+  );
+});
+
+test("buildContextCases includes closed cases only when new activity appears in daily window", () => {
+  const cases = buildContextCases(
+    [
+      normalized({
+        line_user_id: "U-closed",
+        event_time: "2026-05-15T03:00:00.000Z",
+        text: "สอบถามเพิ่มค่ะ",
+      }),
+    ],
+    {
+      windowStart: new Date("2026-05-15T01:00:00.000Z"),
+      windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+      lookbackDays: 90,
+      caseState: {
+        cases: {
+          "U-closed": { status: "closed", summary: "ปิดแล้ว" },
+        },
+      },
+    },
+  );
+
+  assert.equal(cases.length, 1);
+  assert.equal(cases[0].line_user_id, "U-closed");
+  assert.equal(cases[0].include_reason, "reactivated_closed_case");
+});
+
+test("buildContextCases sorts and retains all relevant messages for the same user", () => {
+  const cases = buildContextCases(
+    [
+      normalized({
+        id: "message-3",
+        line_user_id: "U-thread",
+        event_time: "2026-05-15T05:00:00.000Z",
+        text: "ล่าสุด",
+      }),
+      normalized({
+        id: "message-1",
+        line_user_id: "U-thread",
+        event_time: "2026-04-10T03:00:00.000Z",
+        text: "เริ่มงาน",
+      }),
+      normalized({
+        id: "message-2",
+        line_user_id: "U-thread",
+        event_time: "2026-05-15T03:00:00.000Z",
+        text: "ตามงาน",
+      }),
+    ],
+    {
+      windowStart: new Date("2026-05-15T01:00:00.000Z"),
+      windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+      lookbackDays: 90,
+      caseState: { cases: {} },
+    },
+  );
+
+  assert.equal(cases.length, 1);
+  assert.deepEqual(
+    cases[0].messages.map((message) => message.id),
+    ["message-1", "message-2", "message-3"],
+  );
+});
+
+test("buildContextCases skips ignored cases without daily activity and reactivates ignored cases with daily activity", () => {
+  const cases = buildContextCases(
+    [
+      normalized({
+        line_user_id: "U-ignored-old",
+        event_time: "2026-04-10T03:00:00.000Z",
+        text: "ไม่ต้องตาม",
+      }),
+      normalized({
+        line_user_id: "U-ignored-daily",
+        event_time: "2026-05-15T03:00:00.000Z",
+        text: "สอบถามใหม่",
+      }),
+    ],
+    {
+      windowStart: new Date("2026-05-15T01:00:00.000Z"),
+      windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+      lookbackDays: 90,
+      caseState: {
+        cases: {
+          "U-ignored-old": { status: "ignored", summary: "ไม่ต้องตาม" },
+          "U-ignored-daily": { status: "ignored", summary: "ไม่ต้องตาม" },
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    cases.map((caseItem) => caseItem.line_user_id),
+    ["U-ignored-daily"],
+  );
+  assert.equal(cases[0].include_reason, "reactivated_ignored_case");
+});
+
+test("buildContextCases includes needs_owner cases from 90-day lookback without daily activity", () => {
+  const cases = buildContextCases(
+    [
+      normalized({
+        line_user_id: "U-needs-owner",
+        event_time: "2026-04-10T03:00:00.000Z",
+        text: "รอเจ้าของตัดสินใจ",
+      }),
+    ],
+    {
+      windowStart: new Date("2026-05-15T01:00:00.000Z"),
+      windowEnd: new Date("2026-05-16T01:00:00.000Z"),
+      lookbackDays: 90,
+      caseState: {
+        cases: {
+          "U-needs-owner": { status: "needs_owner", summary: "รอเจ้าของ" },
+        },
+      },
+    },
+  );
+
+  assert.equal(cases.length, 1);
+  assert.equal(cases[0].line_user_id, "U-needs-owner");
+  assert.equal(cases[0].include_reason, "existing_needs_owner_case");
 });

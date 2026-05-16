@@ -369,12 +369,90 @@ function loadRawLogMessages(rawLogDir, options = {}) {
     .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
 }
 
+function messageTime(message) {
+  const timestamp = message.event_time || message.created_at;
+  return timestamp ? new Date(timestamp).getTime() : Number.NaN;
+}
+
+function groupByLineUser(messages) {
+  const groups = new Map();
+
+  for (const message of messages) {
+    if (!message.line_user_id) continue;
+    if (!groups.has(message.line_user_id)) {
+      groups.set(message.line_user_id, []);
+    }
+    groups.get(message.line_user_id).push(message);
+  }
+
+  for (const group of groups.values()) {
+    group.sort((a, b) => messageTime(a) - messageTime(b));
+  }
+
+  return groups;
+}
+
+function isInsideWindow(message, start, end) {
+  const time = messageTime(message);
+  return time >= start.getTime() && time <= end.getTime();
+}
+
+function buildContextCases(messages, options) {
+  const windowStart = options.windowStart;
+  const windowEnd = options.windowEnd;
+  const lookbackDays = options.lookbackDays;
+  const caseState = options.caseState || { cases: {} };
+  const knownCases =
+    caseState && caseState.cases && typeof caseState.cases === "object" && !Array.isArray(caseState.cases)
+      ? caseState.cases
+      : {};
+  const lookbackStart = new Date(windowEnd.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+  const contextCases = [];
+
+  for (const [lineUserId, groupMessages] of groupByLineUser(messages)) {
+    const relevantMessages = groupMessages.filter((message) => isInsideWindow(message, lookbackStart, windowEnd));
+    if (relevantMessages.length === 0) continue;
+
+    const state = knownCases[lineUserId] || { status: "open" };
+    const status = state.status || "open";
+    const hasDailyActivity = relevantMessages.some((message) => isInsideWindow(message, windowStart, windowEnd));
+    let includeReason = "";
+
+    if (status === "closed" || status === "ignored") {
+      if (!hasDailyActivity) continue;
+      includeReason = `reactivated_${status}_case`;
+    } else if (hasDailyActivity) {
+      includeReason = "activity_in_daily_window";
+    } else if (status === "open" || status === "watch" || status === "needs_owner") {
+      includeReason = `existing_${status}_case`;
+    } else {
+      continue;
+    }
+
+    const latestMessage = relevantMessages[relevantMessages.length - 1];
+    contextCases.push({
+      line_user_id: lineUserId,
+      display_name: latestMessage.display_name || "",
+      status,
+      state,
+      include_reason: includeReason,
+      latest_at: latestMessage.event_time || latestMessage.created_at,
+      messages: relevantMessages,
+    });
+  }
+
+  return contextCases.sort((a, b) => new Date(a.latest_at).getTime() - new Date(b.latest_at).getTime());
+}
+
 module.exports = {
+  buildContextCases,
   dailyWindow,
   fileSha1,
   firstValue,
+  groupByLineUser,
   importCsvBackups,
   inferDirection,
+  isInsideWindow,
   loadCaseState,
   loadImportManifest,
   loadRawLogMessages,
